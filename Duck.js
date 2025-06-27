@@ -1,101 +1,98 @@
-let ducks = [];
-let breads = [];
-let pondX, pondY, pondRadius;
-let dropButton, resetButton;
-let poppedCount = 0
-
-function setup() {
-  createCanvas(800, 600);
-  textAlign(CENTER, CENTER);
-  rectMode(CENTER);
-
-  pondX = width / 2;
-  pondY = height / 2;
-  pondRadius = 200;
-
-  // Create 10 ducks at random positions inside pond
-  for (let i = 0; i < 10; i++) {
-    let pos = randomPointInPond();
-    ducks.push(new Duck(pos.x, pos.y));
+class Duck {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.vx = random(-1, 1);
+    this.vy = random(-1, 1);
+    this.ax = 0;
+    this.ay = 0;
+    this.size = 28; // Normal duck size
   }
 
-  // Start with 2 bread pieces
-  for (let i = 0; i < 2; i++) {
-    let pos = randomPointInPond();
-    breads.push(new Bread(pos.x, pos.y));
+ move(breads) {
+  this.ax = 0;
+  this.ay = 0;
+
+  let closest = null;
+  let closestDist = Infinity;
+
+  // Loop through all bread
+  for (let i = breads.length - 1; i >= 0; i--) {
+    let b = breads[i];
+    let d = dist(this.x, this.y, b.x, b.y);
+
+    // Eat any bread we’re close enough to
+    if (d < 16) {
+      breads.splice(i, 1);
+      this.size += 4;
+      continue;
+    }
+
+    // Track the closest bread within attraction range
+    if (d < 150 && d < closestDist) {
+      closest = b;
+      closestDist = d;
+    }
   }
 
-  // On-screen buttons
-  dropButton = createButton("Drop Bread");
-  dropButton.position(20, height - 40);
-  dropButton.mousePressed(dropBread);
+  // Apply attraction toward the closest bread
+  if (closest) {
+    let dx = closest.x - this.x;
+    let dy = closest.y - this.y;
+    let force = 1 / (closestDist * closestDist);
+    this.ax += dx * force;
+    this.ay += dy * force;
+  }
 
-  resetButton = createButton("Reset");
-  resetButton.position(120, height - 40);
-  resetButton.mousePressed(resetSimulation);
+  // Wander if not attracted to any bread
+  if (this.ax === 0 && this.ay === 0) {
+    this.vx += random(-0.1, 0.1);
+    this.vy += random(-0.1, 0.1);
+  }
+
+  // Apply acceleration and limit speed
+  this.vx += this.ax;
+  this.vy += this.ay;
+
+  let speed = sqrt(this.vx * this.vx + this.vy * this.vy);
+  if (speed > 2) {
+    this.vx *= 2 / speed;
+    this.vy *= 2 / speed;
+  }
+
+  this.x += this.vx;
+  this.y += this.vy;
+
+  // Stay inside pond
+  let dx = this.x - pondX;
+  let dy = this.y - pondY;
+  let distFromCenter = sqrt(dx * dx + dy * dy);
+  let buffer = max(this.size / 2, 14); // Adjust for duck size
+
+  if (distFromCenter > pondRadius - buffer) {
+    let angle = atan2(dy, dx);
+    let targetDist = pondRadius - buffer - 1;
+    this.x = pondX + targetDist * cos(angle);
+    this.y = pondY + targetDist * sin(angle);
+    this.vx *= -0.4;
+    this.vy *= -0.4;
+  }
 }
 
-function draw() {
-  background(0, 180, 0); // Green background
-
-  // Draw pond
-  fill(0, 150, 255);
-  noStroke();
-  ellipse(pondX, pondY, pondRadius * 2);
-
-  // Update and display ducks
-  for (let duck of ducks) {
-    duck.move(breads);
-    duck.show();
-  }
-
-  // If fewer than 2 bread objects, auto-replenish
-  while (breads.length < 2) {
-    let pos = randomPointInPond();
-    breads.push(new Bread(pos.x, pos.y));
-  }
-
-  // Display bread
-  for (let bread of breads) {
-    bread.show();
-  }
-
-// Display popped duck count
-fill(255);
-textSize(20);
-textAlign(LEFT, TOP);
-text("Popped Ducks: " + poppedCount, 20, 20);
 
 
+  show() {
+    if (this.size >= 60) {
+      // Duck has popped — don't display
+      let index = ducks.indexOf(this);
+      if (index > -1) {
+        ducks.splice(index, 1);
+        poppedCount++; //Add to poppedCount
+      }
+      return;
+    }
 
-}
-
-// Drop bread at a random spot in the pond
-function dropBread() {
-  let pos = randomPointInPond();
-  breads.push(new Bread(pos.x, pos.y));
-}
-
-// Get a random point inside the circular pond
-function randomPointInPond() {
-  let angle = random(TWO_PI);
-  let radius = sqrt(random(1)) * (pondRadius-48); // Uniform distribution
-  let x = pondX + radius * cos(angle);
-  let y = pondY + radius * sin(angle);
-  return createVector(x, y);
-}
-
-// Reset simulation
-function resetSimulation() {
-  poppedCount=0;
-  ducks = [];
-  breads = [];
-  for (let i = 0; i < 10; i++) {
-    let pos = randomPointInPond();
-    ducks.push(new Duck(pos.x, pos.y));
-  }
-  for (let i = 0; i < 2; i++) {
-    let pos = randomPointInPond();
-    breads.push(new Bread(pos.x, pos.y));
+    textSize(this.size);
+    text("🦆", this.x, this.y);
   }
 }
