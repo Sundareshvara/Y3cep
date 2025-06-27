@@ -1,1 +1,1 @@
-# Y3cep
+The ducks swim randomly unless near bread. when they are near bread they are attracted to the bread. When they eat too much bread they explode. there is always a minimum of 2 bread, but you can add more. The reset button resets it completely.
